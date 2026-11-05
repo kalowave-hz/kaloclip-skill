@@ -73,11 +73,17 @@ def _parse(raw: bytes):
     return body if isinstance(body, dict) else None
 
 
-def multipart(field: str, paths: list[Path]) -> tuple[bytes, str]:
-    """Encode files as multipart/form-data under one repeated field name."""
+def multipart(files: list[tuple[str, Path]], fields: dict | None = None) -> tuple[bytes, str]:
+    """Encode text fields and files as multipart/form-data (a field name may repeat)."""
     boundary = f"----clip{uuid.uuid4().hex}"
     parts: list[bytes] = []
-    for p in paths:
+    for key, value in (fields or {}).items():
+        if value is None:
+            continue
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode("utf-8")
+        )
+    for field, p in files:
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         name = p.name.replace('"', "")
         parts.append(
@@ -118,6 +124,9 @@ _CONFLICT_HINTS = {
     "identical command with the same --idempotency-key in a few seconds (within 5 minutes)",
     "SUBMISSION_OUTCOME_UNKNOWN": "Kaloclip cannot tell whether the first submission went through — stop "
     "submitting automatically and tell the user; don't retry with a new key (it could bill twice)",
+    "VOICE_CLONE_IN_PROGRESS": "A clone of this exact form and audio is still running (or its billed result "
+    "is being checked) — wait a minute, check `clip voice list`, then rerun the identical command; "
+    "don't switch to another recording",
 }
 
 
@@ -138,6 +147,11 @@ def _translate(status: int, body: dict) -> ClipError:
     if code in _GATEWAY_HINTS:
         kind = "auth" if code == "INSUFFICIENT_RIGHTS" else "parameter"
         return ClipError(text, kind=kind, help_lines=[_GATEWAY_HINTS[code]])
+    if code == "CHARACTER_ASSET_LIMIT_EXCEEDED":
+        return ClipError(text, kind="parameter", help_lines=[
+            "The account has as many characters as its membership allows (by default Free 3 / Pro 10 / Max 50) — "
+            "reuse one from `clip character list`, or delete one / upgrade on the Kaloclip website; don't retry",
+        ])
     # checked before the 400 branch: the queue rejection can come back as HTTP 400
     if code in _QUEUE_FULL:
         return ClipError(text, kind="queue", help_lines=[
@@ -182,14 +196,17 @@ def request(
     *,
     params: dict | None = None,
     body=None,
-    files: tuple[str, list[Path]] | None = None,
+    files: list[tuple[str, Path]] | None = None,
+    form: dict | None = None,
     headers: dict | None = None,
     timeout: float = 60.0,
+    retries: int = _RETRIES,
 ):
     """Call base_url+path; return the envelope's `data`.
 
     Retries (network errors, 5xx) resend the identical request, so job
-    submissions must carry their Idempotency-Key in `headers`.
+    submissions must carry their Idempotency-Key in `headers`; calls the
+    server cannot deduplicate pass retries=1.
     """
     require_auth(cfg)
     url = cfg.base_url.rstrip("/") + path
@@ -200,14 +217,14 @@ def request(
     hdrs = _headers(cfg)
     payload = None
     if files is not None:
-        payload, hdrs["Content-Type"] = multipart(*files)
+        payload, hdrs["Content-Type"] = multipart(files, form)
     elif body is not None:
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
         hdrs["Content-Type"] = "application/json;charset=UTF-8"
     hdrs.update(headers or {})
 
     last = "unknown error"
-    for attempt in range(_RETRIES):
+    for attempt in range(retries):
         try:
             status, raw = _do_request(url, payload, hdrs, timeout, method)
             parsed = _parse(raw)
@@ -222,10 +239,10 @@ def request(
             raise _translate(status, parsed)
         except _Retryable as e:
             last = str(e)
-            if attempt < _RETRIES - 1:
+            if attempt < retries - 1:
                 time.sleep(0.5 * (attempt + 1) + random.uniform(0, 0.3))
     raise ClipError(
-        f"Kaloclip unreachable after {_RETRIES} attempts ({last})",
+        f"Kaloclip unreachable after {retries} attempt{'s' if retries > 1 else ''} ({last})",
         kind="network",
         help_lines=["Retry shortly; check network access to " + urllib.parse.urlsplit(cfg.base_url).netloc],
     )

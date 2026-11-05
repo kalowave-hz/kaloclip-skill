@@ -26,6 +26,9 @@ COMMAND_TABLE = [
     ("clip asset list", "assets already in the account, e.g. past videos: --type VID --source AI (free)"),
     ("clip image upload <file...>", "local images → asset ids, 1-6, ≤5MB each (free)"),
     ("clip image import <url...>", "public image URLs → asset ids (free)"),
+    ("clip character list", "characters (digital avatars) to appear in videos; create / get / voice (free)"),
+    ("clip voice list", "cloned and favourited voices (free)"),
+    ("clip voice clone", "[credits] the user's own voice from a 15-20s recording"),
     ("clip script create", "[credits] draft a script; --product-link or --image/--title/--category"),
     ("clip script get <job_id>", "script draft state and text; --wait"),
     ("clip script candidates <job_id>", "the 2 candidates of a Kaloclip web rewrite job"),
@@ -43,6 +46,7 @@ CONVENTIONS = [
     "Video scripts come from `clip script create` (Kaloclip's model, built on top-performing ads) — don't write your own or compare yours against its drafts unless asked",
     "Flow: options → product resolve → script create → script get --wait → video preview → video create → video get --wait",
     "Jobs are async: keep the job id and poll (`--wait`); never resubmit a queued/processing job",
+    "Digital avatar: `clip character list` (or `character create`) → pass the same --character to script create and video create; a bound voice (`character voice`) is used automatically",
     "--image takes ASSET_ID=IMAGE_URL (repeat, 1-6); --model/--duration/--resolution from one `clip options` row",
     "Run `clip <command> --help` for per-command flags and examples",
 ]

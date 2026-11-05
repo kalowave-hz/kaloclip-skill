@@ -18,7 +18,7 @@ ANALYSIS_CREDITS = 1  # flat per analysis, refunded on failure
 # Fields a remembered script draft shares with POST /videos.
 _CARRY = (
     "imageInfos", "productTitle", "categoryNames", "sellingPoints", "creationDescription",
-    "productId", "country", "sellingCountry", "language", "duration", "internalModelId",
+    "productId", "country", "sellingCountry", "language", "duration", "internalModelId", "characterAssetId",
 )
 
 
@@ -37,6 +37,9 @@ def product_flags() -> list[Flag]:
         Flag("--country", "product market, e.g. US", metavar="CC"),
         Flag("--selling-country", "market the video sells into, e.g. US", metavar="CC"),
         Flag("--language", "script/video language code, e.g. en, zh (default en)", metavar="LANG"),
+        Flag("--character", "character (digital avatar) id from `clip character list` — it appears in the video; "
+             f"models {'/'.join(common.CHARACTER_MODELS)} only, then at most {common.CHARACTER_IMAGES_MAX} images",
+             metavar="ID"),
     ]
 
 
@@ -45,6 +48,8 @@ def creation_fields(cfg, opts, base: dict | None = None) -> dict:
     # local checks first: a bad flag must not cost a (rate-limited) product resolve
     images = common.images(opts.get("image"), required=False)
     duration = common.duration(opts)
+    character = common.asset_id(opts.get("character"), "--character")
+    images_max = common.CHARACTER_IMAGES_MAX if character or (base or {}).get("characterAssetId") else common.IMAGES_MAX
     description = opts.get("description")
     if description and len(description) > DESCRIPTION_MAX:
         raise UsageError(f"--description is {len(description)} chars; the limit is {DESCRIPTION_MAX}")
@@ -54,7 +59,7 @@ def creation_fields(cfg, opts, base: dict | None = None) -> dict:
         p = resolve_product(cfg, link, opts.get("country"), opts.get("language"))
         fields.update(common.compact({
             "imageInfos": [{"assetId": i.get("assetId"), "imageUrl": i.get("imageUrl")}
-                           for i in p.get("imageInfos") or [] if i.get("assetId") is not None][: common.IMAGES_MAX],
+                           for i in p.get("imageInfos") or [] if i.get("assetId") is not None][: images_max],
             "productTitle": p.get("productTitle"),
             "categoryNames": p.get("categoryNames"),
             "sellingPoints": p.get("sellingPoints"),
@@ -73,8 +78,23 @@ def creation_fields(cfg, opts, base: dict | None = None) -> dict:
         "language": opts.get("language"),
         "duration": duration,
         "internalModelId": opts.get("model"),
+        "characterAssetId": character,
     }))
     return fields
+
+
+def check_character(fields: dict, voice=None) -> None:
+    """A character or voice works with a few models only and leaves room for 5 product images."""
+    if not fields.get("characterAssetId") and not voice:
+        return
+    what = "--character" if fields.get("characterAssetId") else "--voice"
+    model = fields.get("internalModelId")
+    if model and model not in common.CHARACTER_MODELS:
+        raise UsageError(f"{what} works with models {', '.join(common.CHARACTER_MODELS)} only, got --model {model}",
+                         ["Pick one of those rows in `clip options`"])
+    if fields.get("characterAssetId") and len(fields.get("imageInfos") or []) > common.CHARACTER_IMAGES_MAX:
+        raise UsageError(f"with --character at most {common.CHARACTER_IMAGES_MAX} product images, "
+                         f"got {len(fields['imageInfos'])}")
 
 
 def require(fields: dict, needs: dict[str, str], extra_hint: str | None = None) -> None:
@@ -102,6 +122,7 @@ def script_create(cfg, opts, args):
         "imageInfos": "--image (or --product-link)", "productTitle": "--title", "categoryNames": "--category",
         "duration": "--duration", "internalModelId": "--model",
     })
+    check_character(fields)
     body = {"creditSourceType": common.CREDIT_SOURCE, **fields}
     job_id = common.submit(cfg, opts, "/scripts", body, extra_preview={"credits": SCRIPT_CREDITS})
     if job_id is None:
@@ -170,11 +191,12 @@ def video_preview(cfg, opts, args):
     return 0
 
 
-def _script_text(cfg, opts) -> tuple[str | None, dict | None]:
-    """-> (final script, inputs the --script-job draft was submitted with, if drafted here).
+def _script_text(cfg, opts) -> tuple[str | None, dict | None, dict | None]:
+    """-> (final script, inputs the --script-job draft was submitted with if drafted here, its metadata).
 
     --script / --script-file give the text; --script-job alone takes the draft's
     text, and with either of the others only lends its inputs (an edited draft).
+    The draft's output.metadata (giv15 drafts) goes back to /videos as scriptMetadata.
     """
     if opts.get("script") and opts.get("script_file"):
         raise UsageError("use only one of --script, --script-file")
@@ -185,23 +207,25 @@ def _script_text(cfg, opts) -> tuple[str | None, dict | None]:
         except OSError as e:
             raise UsageError(f"cannot read --script-file: {e.strerror or e}") from None
     if not opts.get("script_job"):
-        return text, None
+        return text, None, None
     job_id = common.job_id_arg(opts["script_job"])
-    if text:
-        return text, common.recall_job(job_id)
     job = common.get_job(cfg, "/scripts", job_id)
     output = job.get("output") if isinstance(job.get("output"), dict) else {}
+    metadata = output.get("metadata") if isinstance(output.get("metadata"), dict) else None
+    if text:
+        return text, common.recall_job(job_id), metadata
     if job.get("state") != "completed" or not output.get("script"):
         raise ClipError(
             f"script job {job_id} is {job.get('state') or 'unknown'}, no script to use yet",
             kind="parameter",
             help_lines=[f"Wait for it: `clip script get {job_id} --wait`"],
         )
-    return output["script"], common.recall_job(job_id)
+    return output["script"], common.recall_job(job_id), metadata
 
 
 def video_create(cfg, opts, args):
-    script, snapshot = _script_text(cfg, opts)
+    script, snapshot, metadata = _script_text(cfg, opts)
+    voice = common.asset_id(opts.get("voice"), "--voice")
     fields = creation_fields(cfg, opts, base=snapshot)
     fields.setdefault("language", "en")
     if not script:
@@ -217,6 +241,7 @@ def video_create(cfg, opts, args):
         "imageInfos": "--image (or --product-link)", "productTitle": "--title",
         "duration": "--duration", "internalModelId": "--model",
     }, recalled)
+    check_character(fields, voice)
     preview = _preview_body(fields, opts, opts.get("resolution") or (snapshot or {}).get("resolution"))
     body = {
         "creditSourceType": common.CREDIT_SOURCE,
@@ -226,6 +251,7 @@ def video_create(cfg, opts, args):
         "aspectRatio": preview["aspectRatio"],
         "resolution": preview["resolution"],
         "quantity": 1,
+        **common.compact({"voiceAssetId": voice, "scriptMetadata": metadata}),
     }
     extra = None
     if not opts.get("yes"):
@@ -344,7 +370,10 @@ COMMANDS = [
                  "machine); with --script/--script-file only its inputs", metavar="JOB_ID"),
             Flag("--script-type", "CREATIVE (default) | FIDELITY (rewrite candidates)", choices=common.SCRIPT_TYPES,
                  metavar="TYPE"),
-            *product_flags(), common.duration_flag(), common.model_flag(),
+            *product_flags(),
+            Flag("--voice", "voice id from `clip voice list` — overrides the character's bound voice, or just "
+                 "re-voices the video without a character; same models as --character", metavar="ID"),
+            common.duration_flag(), common.model_flag(),
             common.resolution_flag(None, " (default: the --script-job draft's, else 720P)"), common.ratio_flag(),
             *_submit_flags(),
         ],

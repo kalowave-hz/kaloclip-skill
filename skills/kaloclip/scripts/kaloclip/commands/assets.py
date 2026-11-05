@@ -138,7 +138,7 @@ def upload(cfg, opts, args):
         if p.stat().st_size > IMAGE_MAX_BYTES:
             raise UsageError(f"{a} is {p.stat().st_size // 1024} KB; the limit is 5 MB per image")
         paths.append(p)
-    data = api.request(cfg, "POST", "/images", files=("images", paths))
+    data = api.request(cfg, "POST", "/images", files=[("images", p) for p in paths])
     return _emit_assets(data, opts)
 
 

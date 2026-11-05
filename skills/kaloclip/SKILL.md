@@ -45,10 +45,11 @@ and don't retry. Walk the user through these steps and wait:
 
    | call | credits |
    |---|---|
-   | `options`, `credit`, `product resolve`, `image upload/import`, `video preview`, any `get` / `job` | free |
+   | `options`, `credit`, `product resolve`, `image upload/import`, `video preview`, `character …`, `voice list`, any `get` / `job` | free |
    | `script create` | 2 |
    | `video create` | the `credits` of the chosen `clip options` row (prices change — never quote one from memory) |
    | `analysis create` | 1 |
+   | `voice clone` | 20 |
 
    Failed jobs are refunded automatically.
 
@@ -62,6 +63,12 @@ and don't retry. Walk the user through these steps and wait:
 | `clip product resolve <link>` | product link → title, categories, selling points, image assets |
 | `clip image upload <file...>` | 1–6 local images (JPEG/PNG/GIF/WebP, ≤5MB) → asset ids |
 | `clip image import <url...>` | 1–6 public https image URLs → asset ids |
+| `clip character list` | characters (digital avatars) of the account; `--category MODEL\|ANIMAL --name` |
+| `clip character get <id>` | one character: images, intro, bound voice |
+| `clip character create` | new character from photos; `--name --main-image [--other-image ×3] [--intro] [--category ANIMAL]` |
+| `clip character voice <id>` | bind / replace (`--voice <voice_id>`) or remove (`--clear`) its voice |
+| `clip voice list` | cloned voices and system voices favourited on the website |
+| `clip voice clone` | `[credits]` the user's voice from a 15–20s recording; `--name --language --gender --audio` |
 | `clip script create` | `[credits]` draft a script; `--product-link`, or `--image` `--title` `--category` |
 | `clip script get <job_id>` | draft state and script text; `--wait` |
 | `clip script candidates <job_id>` | the two candidates of a rewrite job made on the Kaloclip website |
@@ -118,8 +125,28 @@ change; keep its structure.
    upload the mp4 from `videoUrl` with `coverImageUrl` as its cover and the job's `duration` and
    `ratio` (shown by `clip video get`). Without cover and duration it shows as a blank `00:00` tile.
 
-`--script-job` reuses the images, title, model, duration and resolution of the draft when the
-draft was made on this machine; otherwise pass them again (`--product-link` covers most of it).
+`--script-job` reuses the images, title, model, duration, resolution and character of the draft
+when the draft was made on this machine; otherwise pass them again (`--product-link` covers most
+of it). It also hands the draft's structured header (giv15 drafts) back to the video job — keep
+the script's first two lines when editing.
+
+## A character (digital avatar) in the video
+
+When the user wants a person or pet of their own to appear in the video:
+
+1. `clip character list` — reuse an existing character (`bind_state` must be `BOUND`). None fits:
+   `clip character create --name <NAME> --main-image front.png [--other-image side.png] [--intro "..."]`
+   (free; up to 2 minutes; the membership caps how many characters exist — Free 3 / Pro 10 / Max 50).
+   It is not deduplicated: if the call times out, check `clip character list` before creating again.
+2. Their own voice (optional): `clip voice clone --name ... --language en --gender female --audio
+   sample.m4a` (20 credits; a 15–20s recording of one clear voice), then
+   `clip character voice <character_id> --voice <voice_id>`. A system voice the user favourited on
+   the website shows up in `clip voice list` too. If a clone times out or fails unclearly, check
+   `clip voice list` first and rerun only with the very same recording.
+3. Pass the same `--character <character_id>` to `clip script create` and `clip video create`; a
+   bound voice is used automatically, `--voice <voice_id>` on `video create` overrides it (or just
+   re-voices a video without a character). Characters and voices work with models `sd2`, `sd25`,
+   `giv15` and `w3` only, and leave room for at most 5 product images.
 
 ## Spending credits
 
@@ -145,6 +172,10 @@ Otherwise mention credits only when the user asks. Never loop submits.
 - `TASK_QUEUE_FULL` (for analyses also `PREDUCT_CHECK_BLOCKED`): the membership's task queue is full —
   a running video also blocks a script analysis. Nothing was charged; wait for the running job, then
   rerun with the same `--idempotency-key`.
+- `CHARACTER_ASSET_LIMIT_EXCEEDED`: the membership's character cap is reached — reuse a character
+  or let the user delete one / upgrade on the website; don't retry.
+- `VOICE_CLONE_IN_PROGRESS`: the same clone is still running — wait, check `clip voice list`, rerun
+  the identical command.
 - `RATE_LIMIT_EXCEEDED`: per-user limits (uploads/imports 10/min, product resolve 10/min, preview
   20/min, videos 5/min) — wait at least 60 seconds.
 - **A job `failed`**: the output shows `error_code` and a `help:` line saying what to change
@@ -156,7 +187,8 @@ Otherwise mention credits only when the user asks. Never loop submits.
 `clip asset list` pages through what the account already has (free): past generated videos are
 `--type VID --source AI --state COMPLETED` (`url` = mp4, `cover`), earlier images are `--type IMG`
 and its `help:` line gives ready `--image ID=URL` flags — reuse them instead of uploading again.
-Deleted and trashed assets are not listed; `AUD` means uploaded audio files, not cloned voices.
+Deleted and trashed assets are not listed; `AUD` means uploaded audio files — cloned voices are in
+`clip voice list`, characters in `clip character list`.
 
 ## Script analysis
 

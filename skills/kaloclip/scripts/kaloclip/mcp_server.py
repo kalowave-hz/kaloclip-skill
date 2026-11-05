@@ -17,13 +17,13 @@ from .errors import ClipError, UsageError
 TOOLS = {c.path.replace(" ", "_"): c for c in COMMANDS if not c.path.startswith("config ")}
 # Terminal presentation only; MCP always returns the CLI's raw JSON data.
 PRESENTATION_FLAGS = {"json"}
-# Free, but they store new image assets on the account.
-_CREATES_ASSETS = {"image upload", "image import"}
+# Free, but they change the account: new image assets, a new character, a character's voice.
+_CREATES_ASSETS = {"image upload", "image import", "character create", "character voice"}
 
 _WRITE_NOTE = (
     " Spends credits. Without yes=true nothing is sent: the result is a dry_run with the exact request, "
-    "its credit cost and an idempotency_key. If the user asked for this job and the credit balance covers "
-    "it, call again with the same arguments plus yes=true and that idempotency_key without asking; ask the "
+    "its credit cost and, for jobs, an idempotency_key. If the user asked for this job and the credit balance "
+    "covers it, call again with the same arguments plus yes=true (and that idempotency_key) without asking; ask the "
     "user first only when the balance is short, you are proposing the job yourself, or they asked to "
     "approve costs before spending."
 )
