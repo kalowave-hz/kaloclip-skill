@@ -101,7 +101,7 @@ _GATEWAY_HINTS = {
     "INSUFFICIENT_RIGHTS": "This key is not enabled for Kaloclip yet — ask KaloData to enable Kaloclip "
     "OpenAPI access for it; a retry or a new key from the same account won't help",
     "NOT_FOUND": "The gateway does not forward this path/method — update the skill "
-    "(`npx skills add sailtonight/kaloclip-skill`); if it is already the newest, the gateway does not "
+    "(`npx skills add kalowave-hz/kaloclip-skill`); if it is already the newest, the gateway does not "
     "offer this command yet, so tell the user and don't retry",
     "PAYLOAD_TOO_LARGE": "The request is over 32MB — upload fewer or smaller images (≤5MB each, ≤6 per call)",
 }

@@ -7,13 +7,13 @@ The skill bundles a zero-dependency CLI (`clip`, Python 3.11+ stdlib only). Inst
 ## Install
 
 ```sh
-npx skills add sailtonight/kaloclip-skill               # project-level
-npx skills add sailtonight/kaloclip-skill -g            # global
+npx skills add kalowave-hz/kaloclip-skill               # project-level
+npx skills add kalowave-hz/kaloclip-skill -g            # global
 ```
 
 ## Configure
 
-`clip` uses the KaloData OpenAPI key — the same key as the [kalodata skill](https://github.com/sailtonight/kalodata-skill)'s `kalo` CLI, read from the same place. If `kalo` already works on this machine, there is nothing to do.
+`clip` uses the KaloData OpenAPI key — the same key as the [kalodata skill](https://github.com/kalowave-hz/kalodata-skill)'s `kalo` CLI, read from the same place. If `kalo` already works on this machine, there is nothing to do.
 
 Otherwise get a key at [open-center/account](https://www.kalodata.com/open-center/account) → *generate key*, then:
 
@@ -67,7 +67,7 @@ A stdio MCP server exposes the same commands as tools (`options`, `product_resol
   "mcpServers": {
     "kaloclip": {
       "command": "uvx",
-      "args": ["--from", "kaloclip-mcp[mcp] @ git+https://github.com/sailtonight/kaloclip-skill", "kaloclip-mcp"],
+      "args": ["--from", "kaloclip-mcp[mcp] @ git+https://github.com/kalowave-hz/kaloclip-skill", "kaloclip-mcp"],
       "env": { "KALODATA_API_KEY": "YOUR_API_KEY" }
     }
   }
