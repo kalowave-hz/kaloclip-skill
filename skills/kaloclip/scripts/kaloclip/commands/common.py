@@ -13,6 +13,8 @@ from ..core import Flag
 from ..errors import ClipError, UsageError
 
 IMAGES_MAX = 6
+CHARACTER_IMAGES_MAX = 5  # product images allowed next to a character
+CHARACTER_MODELS = ("sd2", "sd25", "giv15", "w3")  # the only models that take a character or voice
 RESOLUTIONS = ("480P", "720P", "1080P", "4K")
 RATIOS = {"9:16": "RATIO_9_16", "16:9": "RATIO_16_9", "RATIO_9_16": "RATIO_9_16", "RATIO_16_9": "RATIO_16_9"}
 SCRIPT_TYPES = ("CREATIVE", "FIDELITY")
@@ -99,6 +101,15 @@ def images(values: list[str], *, required: bool = True) -> list[dict]:
     if len(out) > IMAGES_MAX:
         raise UsageError(f"at most {IMAGES_MAX} images per job, got {len(out)}")
     return out
+
+
+def asset_id(value, flag: str) -> int | None:
+    if value in (None, ""):
+        return None
+    v = str(value).strip()
+    if not v.isdigit() or int(v) < 1:
+        raise UsageError(f"{flag} expects a numeric id, got '{value}'")
+    return int(v)
 
 
 def need(opts, *names: str) -> None:
@@ -302,6 +313,8 @@ _FAILURE_HINTS = {
     "CONTENT_SENSITIVE": "The script or video content was flagged — adjust it, then " + _RETRY,
     "SECURITY_REVIEW": "Failed the safety review — adjust the content, then " + _RETRY,
     "SCRIPT_TOO_LONG": "The script is too long for this duration — shorten it, then " + _RETRY,
+    "VOICE_REPLACE": "Swapping in the character's voice failed — check the voice with `clip character get` / "
+    "`clip voice list` (or drop --voice), then " + _RETRY,
 }
 
 

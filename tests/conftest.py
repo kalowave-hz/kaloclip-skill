@@ -27,6 +27,8 @@ class MockClip(BaseHTTPRequestHandler):
         body = json.loads(raw) if raw and ctype.startswith("application/json") else raw
         self._respond(body)
 
+    do_PUT = do_POST
+
     def do_GET(self):
         self._respond(None)
 
