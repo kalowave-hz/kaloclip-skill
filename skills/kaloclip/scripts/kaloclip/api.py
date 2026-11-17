@@ -49,7 +49,7 @@ def _headers(cfg: Config) -> dict:
         "User-Agent": f"clip/{__version__}",
         "Accept": "application/json",
         "secret-key": cfg.api_key,
-        "source-type": "SKILL",
+        "source-type": "CLIP_SKILL_CALL",
         "skill-version": __version__,
     }
 
