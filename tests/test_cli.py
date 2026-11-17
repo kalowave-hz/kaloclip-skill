@@ -74,7 +74,7 @@ def test_headers_never_carry_a_user_id(capsys, env):
     assert "total_remain: 160.8" in out
     _, path, _, headers, _ = env.requests[0]
     assert headers["secret-key"] == "test-key"
-    assert headers["source-type"] == "SKILL"
+    assert headers["source-type"] == "CLIP_SKILL_CALL"
     assert "x-user-id" not in headers and "x-internal-api-key" not in headers
 
 
