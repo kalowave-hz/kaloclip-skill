@@ -71,6 +71,7 @@ def env(monkeypatch, mock_server, tmp_path):
     from kaloclip.commands import common
 
     monkeypatch.setenv("KALODATA_API_KEY", "test-key")
+    monkeypatch.delenv("KALO_SOURCE_TYPE", raising=False)
     monkeypatch.setenv("KALOCLIP_BASE_URL", f"http://127.0.0.1:{mock_server.server_address[1]}")
     monkeypatch.setenv("KALODATA_CONFIG_DIR", str(tmp_path / "cfg"))
     monkeypatch.setenv("KALOCLIP_NO_UPDATE_CHECK", "1")

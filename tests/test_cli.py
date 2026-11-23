@@ -517,3 +517,11 @@ def test_bad_flags_fail_before_the_product_resolve(capsys, env):
     code, out = run(capsys, "script", "create", "--product-link", LINK, "--model", "sd2", "--duration", "0")
     assert code == 2
     assert env.requests == []
+
+
+def test_source_type_follows_the_host(capsys, env, monkeypatch):
+    monkeypatch.setenv("KALO_SOURCE_TYPE", "KALOS")
+    env.responses["/credits"] = ok({"totalRemain": 1, "subAccount": False})
+    run(capsys, "credit")
+    _, _, _, headers, _ = env.requests[0]
+    assert headers["source-type"] == "KALOS"
