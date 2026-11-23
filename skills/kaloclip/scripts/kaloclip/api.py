@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import random
 import socket
 import time
@@ -31,6 +32,9 @@ from .errors import ClipError
 from .onboarding import NO_KEY_MESSAGE, SETUP_LINES
 
 _RETRIES = 3
+# Hosts that bundle the skill (e.g. the KaloPilot Assistant) set KALO_SOURCE_TYPE
+# so its calls are billed under their own source type.
+DEFAULT_SOURCE_TYPE = "CLIP_SKILL_CALL"
 
 AUTH_HELP = SETUP_LINES
 
@@ -49,7 +53,7 @@ def _headers(cfg: Config) -> dict:
         "User-Agent": f"clip/{__version__}",
         "Accept": "application/json",
         "secret-key": cfg.api_key,
-        "source-type": "CLIP_SKILL_CALL",
+        "source-type": os.environ.get("KALO_SOURCE_TYPE") or DEFAULT_SOURCE_TYPE,
         "skill-version": __version__,
     }
 
