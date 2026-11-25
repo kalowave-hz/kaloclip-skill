@@ -39,7 +39,7 @@ clip video get <job_id> --wait                 # ~15 min → videoUrl
 clip analysis create 'https://www.tiktok.com/@shop/video/74...'
 ```
 
-Credit-spending commands (`script create`, `video create`, `analysis create`) only print the exact request on the first run; they submit when rerun with `--yes`. Every submit carries an `Idempotency-Key`, so rerunning a submit whose outcome is unknown with the same `--idempotency-key` (within 5 minutes) can't bill twice.
+Credit-spending commands (`script create`, `video create`, `remake create`, `analysis create`) only print the exact request on the first run; they submit when rerun with `--yes`. Every submit carries an `Idempotency-Key`, so rerunning a submit whose outcome is unknown with the same `--idempotency-key` (within 5 minutes) can't bill twice.
 
 Output is token-efficient TOON; add `--json` for raw JSON. Exit codes: `0` success, `1` error, `2` usage error.
 
@@ -55,7 +55,10 @@ Output is token-efficient TOON; add `--json` for raw JSON. Exit codes: `0` succe
 | `clip script create` / `get` / `candidates` | Draft a script (2 credits); read drafts and web rewrite candidates |
 | `clip video preview` / `create` / `get` | Estimate, make and fetch videos |
 | `clip analysis create` / `get` | Scene / voice-over / camera breakdown of an existing video (kept 30 days) |
+| `clip remake options` / `preview` / `create` | Product video that follows a reference video (≤30s); credits = reference seconds × model |
 | `clip job <job_id>` | Any job; `--wait` polls every 5s |
+| `clip tiktok auth` / `accounts` / `products` / `music` | Link a TikTok creator account; pick a product and music |
+| `clip tiktok publish` / `status` / `records` / `confirm` / `cancel` | Post a video asset to TikTok with a product attached (free; dry run unless `--yes`) |
 | `clip config [set]` | Show or save the key (shared with `kalo`) and endpoint |
 
 ## Local MCP server

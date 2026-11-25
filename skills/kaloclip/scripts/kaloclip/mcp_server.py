@@ -18,7 +18,10 @@ TOOLS = {c.path.replace(" ", "_"): c for c in COMMANDS if not c.path.startswith(
 # Terminal presentation only; MCP always returns the CLI's raw JSON data.
 PRESENTATION_FLAGS = {"json"}
 # Free, but they change the account: new image assets, a new character, a character's voice.
-_CREATES_ASSETS = {"image upload", "image import", "character create", "character voice"}
+_CREATES_ASSETS = {"image upload", "image import", "character create", "character voice",
+                   "tiktok auth", "tiktok cancel"}
+# Free, but they post publicly on the user's TikTok account.
+_PUBLISHES = {"tiktok publish", "tiktok confirm"}
 
 _WRITE_NOTE = (
     " Spends credits. Without yes=true nothing is sent: the result is a dry_run with the exact request, "
@@ -26,6 +29,11 @@ _WRITE_NOTE = (
     "covers it, call again with the same arguments plus yes=true (and that idempotency_key) without asking; ask the "
     "user first only when the balance is short, you are proposing the job yourself, or they asked to "
     "approve costs before spending."
+)
+
+_PUBLISH_NOTE = (
+    " Posts publicly on the user's TikTok account (free). Without yes=true nothing is sent: the result is a "
+    "dry_run with the exact request. Call again with yes=true only after the user has seen and agreed to it."
 )
 
 
@@ -65,7 +73,8 @@ def create_server():
             f"{name}Arguments", __config__=ConfigDict(extra="forbid", strict=True), **fields
         )
         models[name] = model
-        description = cmd.summary + (_WRITE_NOTE if cmd.writes else "")
+        note = _PUBLISH_NOTE if cmd.path in _PUBLISHES else _WRITE_NOTE if cmd.writes else ""
+        description = cmd.summary + note
         read_only = not cmd.writes and cmd.path not in _CREATES_ASSETS
         tools.append(types.Tool(
             name=name, description=description, input_schema=model.model_json_schema(),
@@ -129,6 +138,10 @@ def create_server():
                      "script_create, video_create and analysis_create spend credits and only return a "
                      "dry run until called again with yes=true — do that without asking when the user "
                      "requested the job and the balance covers it, unless they asked to approve costs first. "
+                     "remake_create makes a product video that follows a reference video (also paid, same dry "
+                     "run rule). tiktok_publish posts a video asset publicly to the user's linked TikTok account "
+                     "(tiktok_auth → tiktok_accounts → tiktok_products → tiktok_publish → tiktok_status): it is "
+                     "free, but call it with yes=true only after the user agreed to the exact post. "
                      "Jobs are async: "
                      "poll them, never resubmit one that is queued/processing. Credentials come from the "
                      "local environment/configuration. Results contain raw upstream JSON data.",

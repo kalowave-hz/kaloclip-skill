@@ -3,9 +3,10 @@ name: kaloclip
 description: >
   Use to make AI product videos / TikTok Shop ads from a product link or images
   (script → finished video), or to watch / break down any TikTok or YouTube Shorts video into
-  script, shots and voice-over instead of grabbing frames — 看视频内容、带货视频、商品视频、
-  UGC 广告、短视频脚本、AI 生成视频、仿写/拆解爆款、分镜. Takes TikTok Shop, Kalodata or Amazon
-  product links. Runs Kaloclip via the bundled `clip` CLI (Python, zero install); jobs spend
+  script, shots and voice-over instead of grabbing frames, remake a reference video for a product,
+  and publish a finished video to the user's TikTok account with a product attached — 看视频内容、
+  带货视频、商品视频、UGC 广告、短视频脚本、AI 生成视频、仿写/拆解爆款、视频复刻、分镜、发布到
+  TikTok、挂车发布. Takes TikTok Shop, Kalodata or Amazon product links. Runs Kaloclip via the bundled `clip` CLI (Python, zero install); jobs spend
   Kalo Credits. Use even if the user never says "kaloclip".
 ---
 
@@ -45,9 +46,10 @@ and don't retry. Walk the user through these steps and wait:
 
    | call | credits |
    |---|---|
-   | `options`, `credit`, `product resolve`, `image upload/import`, `video preview`, `character …`, `voice list`, any `get` / `job` | free |
+   | `options`, `credit`, `product resolve`, `image upload/import`, `video preview`, `remake options/preview`, `character …`, `voice list`, `tiktok …`, any `get` / `job` | free |
    | `script create` | 2 |
    | `video create` | the `credits` of the chosen `clip options` row (prices change — never quote one from memory) |
+   | `remake create` | reference seconds × model — `clip remake preview` gives the exact number |
    | `analysis create` | 1 |
    | `voice clone` | 20 |
 
@@ -77,7 +79,19 @@ and don't retry. Walk the user through these steps and wait:
 | `clip video get <job_id>` | video state; `videoUrl` when completed; `--wait` |
 | `clip analysis create <video_url>` | `[credits]` shot-by-shot breakdown of an existing video; `--commerce --country` |
 | `clip analysis get <job_id>` | analysis state and result (kept 30 days); `--wait` |
+| `clip remake options` | models / resolutions / ratios a remake accepts now; `--duration <reference seconds>` |
+| `clip remake preview` | credits a remake would cost; `--video <url>` or `--video-asset <id>`, `--model --resolution` |
+| `clip remake create` | `[credits]` product video following a reference video (≤30s); product flags as `script create`, `--bgm regenerate\|keep\|remove` |
 | `clip job <job_id>` | any job's state and output; `--wait` |
+| `clip tiktok auth` | URL for the user to link a TikTok creator account; `--region US` |
+| `clip tiktok accounts` | linked TikTok accounts; `link_id` is `--account` |
+| `clip tiktok products` | TikTok Shop products the account can attach; `--account` |
+| `clip tiktok music <keyword>` | commercial music; `--account` (replaces the video's whole audio) |
+| `clip tiktok publish` | `[public]` post a video asset with a product; dry run unless `--yes` |
+| `clip tiktok status <record_id>` | publish state, pre-check issues, `publish_url`; `--wait` |
+| `clip tiktok records` | publish history (website's too) with sales; `--asset --status --mode --account` |
+| `clip tiktok confirm <record_id>` | `[public]` post a publish held by pre-check issues |
+| `clip tiktok cancel <record_id>` | cancel a scheduled publish |
 | `clip config` | show/set key (shared with kalo) and endpoint (`--base-url staging`) |
 
 ## Video scripts come from Kaloclip
@@ -148,6 +162,56 @@ When the user wants a person or pet of their own to appear in the video:
    re-voices a video without a character). Characters and voices work with models `sd2`, `sd25`,
    `giv15` and `w3` only, and leave room for at most 5 product images.
 
+## Remaking a reference video
+
+`clip remake create` makes a product video that follows a reference video — its script, shots and
+pacing — with the user's product (and optionally a character) instead. Use it when the user wants
+"the same video, but for my product" (视频复刻); to only borrow ideas from a video, analyse it and
+pass the takeaways to `script create` instead.
+
+1. `clip remake options --duration <reference seconds>` — take `--model` and `--resolution` from it only.
+2. `clip remake create --video <tiktok|kalodata|youtube url> --product-link <link> --model <M>` (or
+   `--video-asset <id>` for a video already in the account; `--image/--title/--product-id` instead of
+   `--product-link`) → a dry run with the exact credits (reference seconds × model). The reference
+   must be ≤30s (`VIDEO_REMAKE_DURATION_EXCEEDED` otherwise); Instagram is not supported.
+3. Rerun with `--yes --idempotency-key <key> --wait` under the same "Spending credits" rules. Fetching
+   an external reference can take up to 2 minutes; `VIDEO_NOT_FOUND` means it wasn't ready — nothing
+   was charged, rerun with the same key in a minute.
+4. `clip job <job_id> --wait` like a video job; `videoUrl` is the result.
+
+`--bgm keep` keeps the reference's music, `remove` drops it, `regenerate` (default) makes new music.
+
+## Publishing to TikTok
+
+`clip tiktok …` posts a video asset of the account to the user's own TikTok account with a TikTok
+Shop product attached (挂车). It is free but public, so it follows its own rule: `clip tiktok publish`
+and `clip tiktok confirm` only print a dry run until rerun with `--yes`, and you rerun only after the
+user has seen and agreed to that exact post (account, video, product, anchor title, caption, time).
+A request like "publish it" is not a blank cheque for details you picked yourself.
+
+1. `clip tiktok accounts` — need a row with `type` CREATOR and `can_publish` true. None, or
+   `expired`: `clip tiktok auth [--region US]`, give the URL to the user, wait until they finish,
+   then check `clip tiktok accounts` again.
+2. `clip tiktok products --account <link_id>` — pick the product with the user (`added` ADDED).
+3. The video: `--asset <id>` — a finished video job's `userAssetId`, or a row of
+   `clip asset list --type VID --source AI --state COMPLETED`.
+4. `clip tiktok publish --account <link_id> --asset <id> --product-id <id> --product-title <title>
+   --title <anchor text> --caption <caption>` → dry run → after the user agrees, the same with `--yes --wait`.
+   - `--title` is the product anchor text: ≤30 characters, no punctuation at all.
+   - Posts are tagged AI-generated by default; `--no-ai-label` only for the user's own footage.
+   - `--schedule 2026-12-01T20:00+08:00` posts later (≤30 days); `clip tiktok cancel <record_id>`
+     undoes it before it goes out.
+   - `--music <id>` (from `clip tiktok music`) replaces the whole audio, voice-over included — only
+     when the user asks for it.
+   - `--precheck` runs TikTok's check first; if it finds issues the publish waits with
+     `need_confirm` — show the issues, and only if the user still wants it, `clip tiktok confirm <record_id> --yes`.
+5. `clip tiktok status <record_id> --wait` until `SUCCESS` (hand `publish_url` to the user) or
+   `FAIL` / `PRE_CHECK_FAIL` (tell them `fail_reason`).
+
+One asset has at most one publish in flight: `PUBLISH_DUPLICATE` or a timed-out publish means look
+it up with `clip tiktok records --asset <id>` and keep polling that record — never post again.
+`clip tiktok records` also shows orders and GMV of earlier posts.
+
 ## Spending credits
 
 `[credits]` commands never act on the first run: without `--yes` they print the exact request
@@ -177,7 +241,7 @@ Otherwise mention credits only when the user asks. Never loop submits.
 - `VOICE_CLONE_IN_PROGRESS`: the same clone is still running — wait, check `clip voice list`, rerun
   the identical command.
 - `RATE_LIMIT_EXCEEDED`: per-user limits (uploads/imports 10/min, product resolve 10/min, preview
-  20/min, videos 5/min) — wait at least 60 seconds.
+  20/min, videos and remakes 5/min, TikTok publishes 300/hour) — wait at least 60 seconds.
 - **A job `failed`**: the output shows `error_code` and a `help:` line saying what to change
   (e.g. replace a flagged image, shorten the script). Tell the user, fix that input, and submit a
   new job with a new key only after they agree. The failed job's credits are refunded.

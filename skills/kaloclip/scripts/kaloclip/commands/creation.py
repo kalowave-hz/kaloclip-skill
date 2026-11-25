@@ -192,11 +192,11 @@ def video_preview(cfg, opts, args):
 
 
 def _script_text(cfg, opts) -> tuple[str | None, dict | None, dict | None]:
-    """-> (final script, inputs the --script-job draft was submitted with if drafted here, its metadata).
+    """-> (final script, inputs the --script-job draft was submitted with if drafted here, its job id).
 
     --script / --script-file give the text; --script-job alone takes the draft's
     text, and with either of the others only lends its inputs (an edited draft).
-    The draft's output.metadata (giv15 drafts) goes back to /videos as scriptMetadata.
+    The draft's job id goes to /videos as scriptJobId; the server reads its metadata.
     """
     if opts.get("script") and opts.get("script_file"):
         raise UsageError("use only one of --script, --script-file")
@@ -209,22 +209,21 @@ def _script_text(cfg, opts) -> tuple[str | None, dict | None, dict | None]:
     if not opts.get("script_job"):
         return text, None, None
     job_id = common.job_id_arg(opts["script_job"])
+    if text:
+        return text, common.recall_job(job_id), job_id
     job = common.get_job(cfg, "/scripts", job_id)
     output = job.get("output") if isinstance(job.get("output"), dict) else {}
-    metadata = output.get("metadata") if isinstance(output.get("metadata"), dict) else None
-    if text:
-        return text, common.recall_job(job_id), metadata
     if job.get("state") != "completed" or not output.get("script"):
         raise ClipError(
             f"script job {job_id} is {job.get('state') or 'unknown'}, no script to use yet",
             kind="parameter",
             help_lines=[f"Wait for it: `clip script get {job_id} --wait`"],
         )
-    return output["script"], common.recall_job(job_id), metadata
+    return output["script"], common.recall_job(job_id), job_id
 
 
 def video_create(cfg, opts, args):
-    script, snapshot, metadata = _script_text(cfg, opts)
+    script, snapshot, script_job_id = _script_text(cfg, opts)
     voice = common.asset_id(opts.get("voice"), "--voice")
     fields = creation_fields(cfg, opts, base=snapshot)
     fields.setdefault("language", "en")
@@ -251,7 +250,7 @@ def video_create(cfg, opts, args):
         "aspectRatio": preview["aspectRatio"],
         "resolution": preview["resolution"],
         "quantity": 1,
-        **common.compact({"voiceAssetId": voice, "scriptMetadata": metadata}),
+        **common.compact({"voiceAssetId": voice, "scriptJobId": int(script_job_id) if script_job_id else None}),
     }
     extra = None
     if not opts.get("yes"):

@@ -183,8 +183,7 @@ def test_voice_clone_checks_audio_locally(capsys, env, tmp_path):
 
 def test_script_and_video_carry_the_character(capsys, env):
     env.responses["/scripts"] = [ok(7), ok({"id": 7, "state": "completed", "jobType": "REFERENCE_SCRIPT_GENERATE",
-                                           "output": {"script": "S", "metadata": {"onCamera": "person",
-                                                                                  "demo": None}}})]
+                                           "output": {"script": "S", "metadata": {"onCamera": "person"}}})]
     code, out = run(capsys, "script", "create", "--image", IMG, "--title", "t", "--category", "c",
                     "--model", "giv15", "--duration", "15", "--character", "4521", "--yes")
     assert code == 0, out
@@ -197,31 +196,30 @@ def test_script_and_video_carry_the_character(capsys, env):
     (_, _, _, _, body), = calls(env, "POST", "/videos")
     assert body["characterAssetId"] == 4521  # reused from the draft
     assert body["voiceAssetId"] == 88
-    assert body["scriptMetadata"] == {"onCamera": "person", "demo": None}
+    assert body["scriptJobId"] == 7 and "scriptMetadata" not in body
 
 
-def test_edited_script_still_sends_the_drafts_metadata(capsys, env, tmp_path):
+def test_edited_script_still_sends_the_draft_job_id(capsys, env, tmp_path):
     edited = tmp_path / "e.txt"
     edited.write_text("Edited")
     env.responses["/scripts"] = ok({"id": 7, "state": "completed", "jobType": "REFERENCE_SCRIPT_GENERATE",
-                                    "output": {"script": "S", "metadata": {"onCamera": "product-only",
-                                                                           "demo": "strict"}}})
+                                    "output": {"script": "S", "metadata": {"onCamera": "product-only"}}})
     env.responses["/videos"] = ok(9)
     code, out = run(capsys, "video", "create", "--script-job", "7", "--script-file", str(edited), "--title", "T",
                     "--image", IMG, "--model", "giv15", "--duration", "15", "--yes")
     assert code == 0, out
     (_, _, _, _, body), = calls(env, "POST", "/videos")
     assert body["script"] == "Edited"
-    assert body["scriptMetadata"] == {"onCamera": "product-only", "demo": "strict"}
+    assert body["scriptJobId"] == 7 and "scriptMetadata" not in body
 
 
-def test_non_giv15_draft_sends_no_metadata(capsys, env):
+def test_plain_script_sends_no_draft_job_id(capsys, env):
     env.responses["/videos"] = ok(9)
     code, out = run(capsys, "video", "create", "--script", "S", "--title", "T", "--image", IMG,
                     "--model", "sd2", "--duration", "15", "--yes")
     assert code == 0, out
     (_, _, _, _, body), = calls(env, "POST", "/videos")
-    assert "scriptMetadata" not in body and "voiceAssetId" not in body and "characterAssetId" not in body
+    assert "scriptJobId" not in body and "voiceAssetId" not in body and "characterAssetId" not in body
 
 
 def test_character_needs_a_supported_model(capsys, env):
