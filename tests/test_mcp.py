@@ -33,6 +33,12 @@ def test_discovery_and_annotations(env):
                 assert tools[name].annotations.read_only_hint is False
                 assert "yes=true" in tools[name].description
             assert tools["image_upload"].annotations.read_only_hint is False
+            for name in ("tiktok_publish", "tiktok_confirm"):
+                assert tools[name].annotations.read_only_hint is False
+                assert "publicly" in tools[name].description and "Spends credits" not in tools[name].description
+            assert tools["remake_create"].annotations.read_only_hint is False
+            assert "Spends credits" in tools["remake_create"].description
+            assert tools["tiktok_cancel"].annotations.read_only_hint is False
             assert "instead of writing scripts yourself" in tools["script_create"].description
             assert tools["asset_list"].annotations.read_only_hint is True
             assert tools["asset_list"].input_schema["properties"]["page_size"]["maximum"] == 100

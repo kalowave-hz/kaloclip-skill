@@ -136,7 +136,7 @@ def compact(d: dict) -> dict:
 
 # --- submits -----------------------------------------------------------------
 
-def submit(cfg, opts, path: str, body: dict, *, extra_preview: dict | None = None):
+def submit(cfg, opts, path: str, body: dict, *, extra_preview: dict | None = None, timeout: float = 60.0):
     """POST a credit-spending job. Without --yes print the request instead (returns None).
 
     The Idempotency-Key is reused across the client's automatic retries and
@@ -164,7 +164,7 @@ def submit(cfg, opts, path: str, body: dict, *, extra_preview: dict | None = Non
             ])
         return None
     try:
-        return api.request(cfg, "POST", path, body=body, headers={"Idempotency-Key": key})
+        return api.request(cfg, "POST", path, body=body, headers={"Idempotency-Key": key}, timeout=timeout)
     except ClipError as e:
         if e.kind == "network" or "SUBMISSION_IN_PROGRESS" in str(e):
             e.help_lines.append(
@@ -349,7 +349,7 @@ def job_hints(job: dict, job_id: str, waited: bool) -> list[str]:
         return [failure_hint(job), "The credits of a failed job are refunded automatically"]
     if state != "completed":
         return []
-    if jtype == "VIDEO_CREATION":
+    if jtype.startswith("VIDEO_"):  # VIDEO_CREATION, VIDEO_REMAKE
         shape = video_shape(job)
         specs = ", ".join(v for v in (shape.get("duration"), shape.get("ratio")) if v)
         return [

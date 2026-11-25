@@ -37,7 +37,19 @@ COMMAND_TABLE = [
     ("clip video get <job_id>", "video state; videoUrl when done; --wait"),
     ("clip analysis create <video_url>", "[credits] shot-by-shot breakdown of an existing video"),
     ("clip analysis get <job_id>", "analysis state and result; --wait"),
+    ("clip remake options", "models / resolutions a remake accepts (free)"),
+    ("clip remake preview", "credits a remake of a reference video would cost (free)"),
+    ("clip remake create", "[credits] product video following a reference video (≤30s); --video or --video-asset"),
     ("clip job <job_id>", "any job's state and output; --wait"),
+    ("clip tiktok auth", "link a TikTok creator account — URL for the user (free)"),
+    ("clip tiktok accounts", "linked TikTok accounts; link_id is --account (free)"),
+    ("clip tiktok products", "TikTok Shop products to attach; --account (free)"),
+    ("clip tiktok music <keyword>", "commercial music; replaces the video's audio (free)"),
+    ("clip tiktok publish", "[public] post a video asset with a product; dry run unless --yes"),
+    ("clip tiktok status <record_id>", "publish state, pre-check issues, publish_url; --wait"),
+    ("clip tiktok records", "publish history with sales; --asset --status"),
+    ("clip tiktok confirm <record_id>", "[public] post despite pre-check issues"),
+    ("clip tiktok cancel <record_id>", "cancel a scheduled publish"),
     ("clip config", "show/set key (shared with kalo) and endpoint"),
 ]
 
@@ -47,6 +59,7 @@ CONVENTIONS = [
     "Flow: options → product resolve → script create → script get --wait → video preview → video create → video get --wait",
     "Jobs are async: keep the job id and poll (`--wait`); never resubmit a queued/processing job",
     "Digital avatar: `clip character list` (or `character create`) → pass the same --character to script create and video create; a bound voice (`character voice`) is used automatically",
+    "[public] commands post on the user's TikTok account — rerun with --yes only after the user agreed to that exact post",
     "--image takes ASSET_ID=IMAGE_URL (repeat, 1-6); --model/--duration/--resolution from one `clip options` row",
     "Run `clip <command> --help` for per-command flags and examples",
 ]

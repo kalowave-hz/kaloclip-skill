@@ -134,6 +134,16 @@ _CONFLICT_HINTS = {
 }
 
 
+_PUBLISH_HINTS = {
+    "PUBLISH_DUPLICATE": "This video asset already has a publish in progress — find it with "
+    "`clip tiktok records --asset <asset_id>` and poll that record; don't publish again",
+    "PUBLISH_CONFIRM_NOT_ALLOWED": "The record is not waiting for confirmation (any more) — check it with "
+    "`clip tiktok status <record_id>`",
+    "PUBLISH_CANCEL_NOT_ALLOWED": "Only a scheduled publish that has not started can be cancelled — check it with "
+    "`clip tiktok status <record_id>`",
+}
+
+
 def _translate(status: int, body: dict) -> ClipError:
     # the gateway answers some rejections (path not forwarded) with an empty body
     code = str(body.get("code") or _STATUS_CODES.get(status) or f"HTTP_{status}")
@@ -156,6 +166,17 @@ def _translate(status: int, body: dict) -> ClipError:
             "The account has as many characters as its membership allows (by default Free 3 / Pro 10 / Max 50) — "
             "reuse one from `clip character list`, or delete one / upgrade on the Kaloclip website; don't retry",
         ])
+    if code == "VIDEO_REMAKE_DURATION_EXCEEDED":
+        return ClipError(text, kind="parameter", help_lines=[
+            "The reference video is longer than 30 seconds — pick a shorter one; nothing was charged",
+        ])
+    if code == "VIDEO_NOT_FOUND":
+        return ClipError(text, kind="parameter", help_lines=[
+            "Kaloclip could not fetch the reference video within 120 seconds — nothing was charged; rerun the "
+            "same command with the same --idempotency-key in a minute",
+        ])
+    if code in _PUBLISH_HINTS:
+        return ClipError(text, kind="parameter", help_lines=[_PUBLISH_HINTS[code]])
     # checked before the 400 branch: the queue rejection can come back as HTTP 400
     if code in _QUEUE_FULL:
         return ClipError(text, kind="queue", help_lines=[
@@ -178,15 +199,16 @@ def _translate(status: int, body: dict) -> ClipError:
                          help_lines=["Fix the flags behind these fields and retry (see `--help` of this command)"])
     if code == "RATE_LIMIT_EXCEEDED":
         return ClipError(text, kind="rate_limit", help_lines=[
-            "Per-user rate limit (uploads/imports 10/min, product resolve 10/min, preview 20/min, videos 5/min) — "
+            "Per-user rate limit (uploads/imports 10/min, product resolve 10/min, preview 20/min, videos and "
+            "remakes 5/min, TikTok publishes 300/hour) — "
             "wait at least 60 seconds before the next call",
         ])
     if code in _CONFLICT_HINTS:
         return ClipError(text, kind="parameter", help_lines=[_CONFLICT_HINTS[code]])
     if code == "RESOURCE_NOT_FOUND":
         return ClipError(text, kind="parameter", help_lines=[
-            "Check the id: jobs are only visible to the account that created them, "
-            "and script analysis results expire 30 days after creation — don't keep polling",
+            "Check the id: jobs, assets, TikTok accounts and publish records are only visible to the account "
+            "that owns them, and script analysis results expire 30 days after creation — don't keep polling",
         ])
     if code == "UPSTREAM_UNAVAILABLE" or status >= 500:
         return ClipError(text, kind="network", help_lines=["Kaloclip is temporarily unavailable; retry shortly"])
