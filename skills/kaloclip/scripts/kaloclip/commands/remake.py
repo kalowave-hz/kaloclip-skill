@@ -11,7 +11,7 @@ from . import common
 from .creation import creation_fields, product_flags, require
 
 REFERENCE_MAX_SECONDS = 30
-RESOLUTIONS = ("480P", "720P", "1080P")
+RESOLUTIONS = ("720P", "1080P")
 SOURCES = ("TikTok", "Kalodata", "YouTube")
 BGM_OPTIONS = {"regenerate": "REGENERATE_BGM", "keep": "KEEP_REFERENCE_BGM", "remove": "REMOVE_BGM"}
 # Kaloclip waits up to 120s for an external reference video to be fetched
